@@ -100,7 +100,7 @@ rec {
       };
 
       testScript = ''
-        machine.succeed("mkdir -p /var/updates")
+        machine.succeed("mkdir -p /var/updates && chmod 755 /var/updates")
 
         # TODO The shared directory is not mounted, so we cannot use copy_from_host.
         machine.succeed("cp -v /etc/updates/* /var/updates/")
