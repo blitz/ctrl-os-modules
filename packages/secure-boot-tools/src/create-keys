@@ -1,0 +1,117 @@
+#!/usr/bin/env nix-shell
+#!nix-shell -i bash -p openssl util-linux efitools curl coreutils
+
+set -euo pipefail
+
+# The owner GUID Microsoft uses for its signature list entries.
+MS_GUID=77fa9abd-0359-4d32-bd60-28f4e78f784b
+
+# Microsoft certificates: name, download URL, SHA-256 of the DER file.
+MS_KEK_CERTS=(
+    "MicCorKEKCA2011 https://go.microsoft.com/fwlink/?LinkId=321185 a1117f516a32cefcba3f2d1ace10a87972fd6bbe8fe0d0b996e09e65d802a503"
+    "MicCorKEK2KCA2023 https://go.microsoft.com/fwlink/?linkid=2239775 3cd3f0309edae228767a976dd40d9f4affc4fbd5218f2e8cc3c9dd97e8ac6f9d"
+)
+
+MS_DB_CERTS=(
+    "MicWinProPCA2011 https://go.microsoft.com/fwlink/?LinkId=321192 e8e95f0733a55e8bad7be0a1413ee23c51fcea64b3c8fa6a786935fddcc71961"
+    "MicCorUEFCA2011 https://go.microsoft.com/fwlink/?LinkId=321194 48e99b991f57fc52f76149599bff0a58c47154229b9f8d603ac40d3500248507"
+    "WinUEFCA2023 https://go.microsoft.com/fwlink/?linkid=2239776 076f1fea90ac29155ebf77c17682f75f1fdd1be196da302dc8461e350a9ae330"
+    "MicUEFCA2023 https://go.microsoft.com/fwlink/?linkid=2239872 f6124e34125bee3fe6d79a574eaa7b91c0e7bd9d929c1a321178efd611dad901"
+    "MicOptROMUEFCA2023 https://go.microsoft.com/fwlink/?linkid=2284009 e5be3e64c6e66a281457ecdece0d6d0787577aad2a3a0144262c10c14ba8d8f1"
+)
+
+# Microsoft dbx updates signed with KEK 2023: architecture, download URL, SHA-256.
+#
+# TODO For people that enroll Microsoft keys, we need to update the DBX periodically.
+MS_DBX_COMMIT=92b433ecf7154c7bf1b8f45245233bdde6cd14e5
+MS_DBX_URL=https://raw.githubusercontent.com/microsoft/secureboot_objects/$MS_DBX_COMMIT/PostSignedObjects/SignedByKEK2023
+MS_DBX=(
+    "x64 $MS_DBX_URL/dbx_x64.efiauth2 524c796ade42db0048b656f6cf3863832174ae7f58cad6986d1ccae1e3d3ecd1"
+    "aarch64 $MS_DBX_URL/dbx_aarch64.efiauth2 a9469ad3f349e0904212626f1badbb826c1a8944dd8341af57df544e8a2cad57"
+)
+
+# Should be enough for any use case. Harvest and decrypt later is not a concern, because nothing is encrypted with this
+# key. Once attacks become relevant, there systems can be migrated to stronger keys.
+RSA_KEYLEN=2048
+
+# Private keys.
+SECRETS_DIR=secrets
+# Certificates and the owner GUID.
+PUBLIC_DIR=public
+# Signed signature lists to enroll in setup mode, one directory per architecture.
+ENROLL_DIR=enroll
+# Certificates and dbx updates downloaded from Microsoft.
+DOWNLOADS=downloads
+
+mkdir -m 700 "$SECRETS_DIR"
+mkdir -p "$PUBLIC_DIR" "$ENROLL_DIR" "$DOWNLOADS"
+
+# Intermediate signature lists.
+WORK=$(mktemp -d)
+trap 'rm -rf "$WORK"' EXIT
+
+uuidgen > "$PUBLIC_DIR/GUID.txt"
+GUID=$(< "$PUBLIC_DIR/GUID.txt")
+
+for key in PK KEK db; do
+    openssl req -new -x509 -newkey "rsa:$RSA_KEYLEN" -subj "/CN=Custom Secure Boot $key/" \
+        -keyout "$SECRETS_DIR/$key.key" -out "$PUBLIC_DIR/$key.crt" -days 3650 -nodes -sha256
+    cert-to-efi-sig-list -g "$GUID" "$PUBLIC_DIR/$key.crt" "$WORK/$key.esl"
+done
+
+# Download a Microsoft certificate, verify it and convert it to a signature list.
+fetch_ms_cert() {
+    local name=$1 url=$2 sha256=$3
+
+    curl -sSfL -o "$DOWNLOADS/$name.der" "$url"
+    echo "$sha256  $DOWNLOADS/$name.der" | sha256sum -c --quiet -
+    openssl x509 -inform der -in "$DOWNLOADS/$name.der" -out "$WORK/$name.crt"
+    cert-to-efi-sig-list -g "$MS_GUID" "$WORK/$name.crt" "$WORK/$name.esl"
+}
+
+cp "$WORK/KEK.esl" "$WORK/KEK-combined.esl"
+for entry in "${MS_KEK_CERTS[@]}"; do
+    read -r name url sha256 <<< "$entry"
+    fetch_ms_cert "$name" "$url" "$sha256"
+    cat "$WORK/$name.esl" >> "$WORK/KEK-combined.esl"
+done
+
+cp "$WORK/db.esl" "$WORK/db-combined.esl"
+for entry in "${MS_DB_CERTS[@]}"; do
+    read -r name url sha256 <<< "$entry"
+    fetch_ms_cert "$name" "$url" "$sha256"
+    cat "$WORK/$name.esl" >> "$WORK/db-combined.esl"
+done
+
+# Download a Microsoft dbx update, verify it and extract its signature list.
+#
+# The file is an EFI_VARIABLE_AUTHENTICATION_2 header followed by the
+# signature list. The header is a 16-byte EFI_TIME and a WIN_CERTIFICATE,
+# whose length is stored in its first 4 bytes.
+fetch_ms_dbx() {
+    local arch=$1 url=$2 sha256=$3
+    local file="$DOWNLOADS/dbx_$arch.efiauth2"
+
+    curl -sSfL -o "$file" "$url"
+    echo "$sha256  $file" | sha256sum -c --quiet -
+
+    local cert_len
+    cert_len=$(od -An -t u4 -j 16 -N 4 "$file" | tr -d ' ')
+    tail -c +$((16 + cert_len + 1)) "$file" > "$WORK/dbx-$arch.esl"
+}
+
+# PK is self-signed, KEK is signed by PK and db and dbx are signed by KEK.
+for entry in "${MS_DBX[@]}"; do
+    read -r arch url sha256 <<< "$entry"
+    fetch_ms_dbx "$arch" "$url" "$sha256"
+
+    mkdir -p "$ENROLL_DIR/$arch"
+    sign-efi-sig-list -g "$GUID" -k "$SECRETS_DIR/PK.key" -c "$PUBLIC_DIR/PK.crt" \
+        PK "$WORK/PK.esl" "$ENROLL_DIR/$arch/PK.auth"
+    sign-efi-sig-list -g "$GUID" -k "$SECRETS_DIR/PK.key" -c "$PUBLIC_DIR/PK.crt" \
+        KEK "$WORK/KEK-combined.esl" "$ENROLL_DIR/$arch/KEK.auth"
+    sign-efi-sig-list -g "$GUID" -k "$SECRETS_DIR/KEK.key" -c "$PUBLIC_DIR/KEK.crt" \
+        db "$WORK/db-combined.esl" "$ENROLL_DIR/$arch/db.auth"
+    sign-efi-sig-list -g "$GUID" -k "$SECRETS_DIR/KEK.key" -c "$PUBLIC_DIR/KEK.crt" \
+        dbx "$WORK/dbx-$arch.esl" "$ENROLL_DIR/$arch/dbx.auth"
+done
