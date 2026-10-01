@@ -8,7 +8,7 @@
 use std::{
     fs::{self, OpenOptions},
     io::Write,
-    path::PathBuf,
+    path::{Path, PathBuf},
 };
 
 use anyhow::{Context, Result, ensure};
@@ -42,7 +42,8 @@ pub struct Opts {
     #[arg(long)]
     db_ca_certificate: PathBuf,
 
-    /// Certificate signing request of the signing key, e.g. signing.csr as created by create-signing-key.
+    /// Certificate signing request of the signing key in PEM or DER format, e.g. signing.csr as created by
+    /// create-signing-key.
     #[arg(long)]
     csr: PathBuf,
 
@@ -74,10 +75,7 @@ impl Opts {
             self.db_ca_certificate.display()
         );
 
-        let csr = X509Req::from_pem(
-            &fs::read(&self.csr)
-                .with_context(|| format!("Failed to read {}", self.csr.display()))?,
-        )?;
+        let csr = read_csr(&self.csr)?;
         let key = csr.public_key()?;
 
         // The CSR is signed by the key it contains. This proves that whoever created the CSR holds the private key.
@@ -133,4 +131,19 @@ impl Opts {
 
         Ok(())
     }
+}
+
+/// Read a certificate signing request in PEM or DER format.
+///
+/// HSMs often hand out CSRs in DER format, while OpenSSL defaults to PEM.
+fn read_csr(path: &Path) -> Result<X509Req> {
+    let data = fs::read(path).with_context(|| format!("Failed to read {}", path.display()))?;
+
+    let csr = if data.starts_with(b"-----BEGIN") {
+        X509Req::from_pem(&data)
+    } else {
+        X509Req::from_der(&data)
+    };
+
+    csr.with_context(|| format!("Failed to parse {} as CSR", path.display()))
 }
