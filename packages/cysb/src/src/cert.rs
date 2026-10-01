@@ -1,31 +1,104 @@
 //! Helpers for creating keys and certificates.
-use anyhow::Result;
+use anyhow::{Result, ensure};
 use openssl::{
-    asn1::Asn1Integer,
-    bn::{BigNum, MsbOption},
-    pkey::{PKey, Private},
-    rsa::Rsa,
-    x509::{X509Name, X509NameBuilder},
+    asn1::{Asn1Integer, Asn1Time}, bn::{BigNum, MsbOption}, hash::MessageDigest, pkey::{PKey, PKeyRef, Private}, rsa::Rsa, x509::{
+        X509, X509Extension, X509Name, X509NameBuilder, X509Ref, extension::{AuthorityKeyIdentifier, SubjectKeyIdentifier},
+    },
 };
 
 /// Should be enough for any use case. Harvest and decrypt later is not a concern, because nothing is encrypted with
 /// these keys. Once attacks become relevant, systems can be migrated to stronger keys.
 const RSA_KEY_BITS: u32 = 2048;
 
+/// Who signs a certificate.
+pub enum Issuer {
+    /// The certificate is signed with its own key.
+    SelfSigned,
+
+    /// The certificate is signed by a CA.
+    Ca { key: PKey<Private>, cert: X509 },
+}
+
 /// Generate a new RSA key.
 pub fn generate_key() -> Result<PKey<Private>> {
     Ok(PKey::from_rsa(Rsa::generate(RSA_KEY_BITS)?)?)
 }
 
+/// Create a certificate for a given key.
+///
+/// Extensions restrict what the certificate may be used for. Key identifiers are added automatically.
+pub fn create_certificate(
+    key: &PKeyRef<Private>,
+    common_name: &str,
+    validity_days: u32,
+    issuer: Issuer,
+    extensions: Vec<X509Extension>,
+) -> Result<X509> {
+    let name = name(common_name)?;
+    let serial = random_serial()?;
+
+    let not_before = Asn1Time::days_from_now(0)?;
+    let not_after = Asn1Time::days_from_now(validity_days)?;
+
+    let mut builder = X509::builder()?;
+
+    // X.509 v3, which is required to add extensions. Yes, 2 indicates version 3.
+    builder.set_version(2)?;
+
+    builder.set_serial_number(&serial)?;
+    builder.set_subject_name(&name)?;
+    builder.set_pubkey(key)?;
+    builder.set_not_before(&not_before)?;
+    builder.set_not_after(&not_after)?;
+
+    let (signing_key, issuer_cert): (&PKeyRef<Private>, Option<&X509Ref>) = match &issuer {
+        Issuer::SelfSigned => {
+            builder.set_issuer_name(&name)?;
+            (key, None)
+        }
+        Issuer::Ca {
+            key: ca_key,
+            cert: ca_cert,
+        } => {
+            ensure!(
+                not_after.as_ref() <= ca_cert.not_after(),
+                "The certificate would be valid longer than the certificate of its issuer"
+            );
+
+            builder.set_issuer_name(ca_cert.subject_name())?;
+            (ca_key, Some(ca_cert))
+        }
+    };
+
+    for extension in extensions {
+        builder.append_extension(extension)?;
+    }
+
+    // CA certificates must have this. It also helps verifiers to find the issuer of certificates issued by this one.
+    let subject_key_id =
+        SubjectKeyIdentifier::new().build(&builder.x509v3_context(issuer_cert, None))?;
+    builder.append_extension(subject_key_id)?;
+
+    // Identifies the key of the issuer. For self-signed certificates, this is the subject key identifier.
+    let authority_key_id = AuthorityKeyIdentifier::new()
+        .keyid(true)
+        .build(&builder.x509v3_context(issuer_cert, None))?;
+    builder.append_extension(authority_key_id)?;
+
+    builder.sign(signing_key, MessageDigest::sha256())?;
+
+    Ok(builder.build())
+}
+
 /// Create a name that only consists of a common name.
-pub fn name(common_name: &str) -> Result<X509Name> {
+fn name(common_name: &str) -> Result<X509Name> {
     let mut name = X509NameBuilder::new()?;
     name.append_entry_by_text("CN", common_name)?;
     Ok(name.build())
 }
 
 /// Create a random serial number.
-pub fn random_serial() -> Result<Asn1Integer> {
+fn random_serial() -> Result<Asn1Integer> {
     // A cryptographically secure random number is okay as the serial number.
     let mut serial = BigNum::new()?;
     serial.rand(128, MsbOption::MAYBE_ZERO, false)?;

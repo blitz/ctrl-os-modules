@@ -8,16 +8,12 @@ use anyhow::{Context, Result, ensure};
 use clap::Args;
 use log::info;
 use openssl::{
-    asn1::Asn1Time,
-    hash::MessageDigest,
     pkey::{PKey, Private},
     x509::X509,
-    x509::extension::{
-        AuthorityKeyIdentifier, BasicConstraints, ExtendedKeyUsage, KeyUsage, SubjectKeyIdentifier,
-    },
+    x509::extension::{BasicConstraints, ExtendedKeyUsage, KeyUsage},
 };
 
-use crate::cert;
+use crate::cert::{self, Issuer};
 
 /// Firmware does not check certificate expiry. Tools such as sbverify do, so this must not exceed the validity of the
 /// db CA certificate.
@@ -106,47 +102,21 @@ fn create_signing_key(
     ca_cert: &X509,
 ) -> Result<(PKey<Private>, X509)> {
     let key = cert::generate_key()?;
-    let name = cert::name(common_name)?;
-    let serial = cert::random_serial()?;
 
-    let not_before = Asn1Time::days_from_now(0)?;
-    let not_after = Asn1Time::days_from_now(VALIDITY_DAYS)?;
+    let extensions = vec![
+        // Mark the certificate as not being a CA certificate.
+        BasicConstraints::new().critical().build()?,
+        // The key may only sign code.
+        KeyUsage::new().critical().digital_signature().build()?,
+        ExtendedKeyUsage::new().code_signing().build()?,
+    ];
 
-    ensure!(
-        not_after.as_ref() <= ca_cert.not_after(),
-        "The signing certificate would be valid longer than the db CA certificate"
-    );
+    let issuer = Issuer::Ca {
+        key: ca_key.clone(),
+        cert: ca_cert.clone(),
+    };
 
-    let mut builder = X509::builder()?;
+    let cert = cert::create_certificate(&key, common_name, VALIDITY_DAYS, issuer, extensions)?;
 
-    // X.509 v3, which is required to add extensions. Yes, 2 indicates version 3.
-    builder.set_version(2)?;
-
-    builder.set_serial_number(&serial)?;
-    builder.set_subject_name(&name)?;
-    builder.set_issuer_name(ca_cert.subject_name())?;
-    builder.set_pubkey(&key)?;
-    builder.set_not_before(&not_before)?;
-    builder.set_not_after(&not_after)?;
-
-    // Mark the certificate as not being a CA certificate.
-    builder.append_extension(BasicConstraints::new().critical().build()?)?;
-
-    // The key may only sign, and only code.
-    builder.append_extension(KeyUsage::new().critical().digital_signature().build()?)?;
-    builder.append_extension(ExtendedKeyUsage::new().code_signing().build()?)?;
-
-    let subject_key_id =
-        SubjectKeyIdentifier::new().build(&builder.x509v3_context(Some(ca_cert), None))?;
-    builder.append_extension(subject_key_id)?;
-
-    // Identifies the db CA key, which helps verifiers find the issuer.
-    let authority_key_id = AuthorityKeyIdentifier::new()
-        .keyid(true)
-        .build(&builder.x509v3_context(Some(ca_cert), None))?;
-    builder.append_extension(authority_key_id)?;
-
-    builder.sign(ca_key, MessageDigest::sha256())?;
-
-    Ok((key, builder.build()))
+    Ok((key, cert))
 }
