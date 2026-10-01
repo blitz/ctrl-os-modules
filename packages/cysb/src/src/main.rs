@@ -1,3 +1,4 @@
+mod cert;
 mod init_ca;
 
 use anyhow::{Context, Result};
