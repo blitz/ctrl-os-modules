@@ -90,7 +90,11 @@ impl Opts {
             let key_file = private_dir.join(format!("{name}.key"));
             let cert_file = public_dir.join(format!("{name}.crt"));
 
-            info!("Creating {common_name}: key={} cert={}", key_file.display(), cert_file.display());
+            info!(
+                "Creating {common_name}: key={} cert={}",
+                key_file.display(),
+                cert_file.display()
+            );
 
             let (key, cert) = create_self_signed(common_name, issues_certificates)
                 .with_context(|| format!("Failed to create {common_name}"))?;
