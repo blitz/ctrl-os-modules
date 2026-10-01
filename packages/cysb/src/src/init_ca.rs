@@ -37,18 +37,13 @@ use clap::Args;
 use log::info;
 use openssl::{
     asn1::Asn1Time,
-    bn::{BigNum, MsbOption},
     hash::MessageDigest,
     pkey::{PKey, Private},
-    rsa::Rsa,
     x509::X509,
-    x509::X509NameBuilder,
     x509::extension::{AuthorityKeyIdentifier, BasicConstraints, KeyUsage, SubjectKeyIdentifier},
 };
 
-/// Should be enough for any use case. Harvest and decrypt later is not a concern, because nothing is encrypted with
-/// these keys. Once attacks become relevant, systems can be migrated to stronger keys.
-const RSA_KEY_BITS: u32 = 2048;
+use crate::cert;
 
 /// Firmware does not check certificate expiry, because it has no trusted time source. The validity period only
 /// matters to tools such as sbverify and must cover all certificates issued by the db CA.
@@ -114,16 +109,9 @@ fn create_self_signed(
     common_name: &str,
     issues_certificates: bool,
 ) -> Result<(PKey<Private>, X509)> {
-    let key = PKey::from_rsa(Rsa::generate(RSA_KEY_BITS)?)?;
-
-    let mut name = X509NameBuilder::new()?;
-    name.append_entry_by_text("CN", common_name)?;
-    let name = name.build();
-
-    // A cryptographically secure random number is okay as the serial number.
-    let mut serial = BigNum::new()?;
-    serial.rand(128, MsbOption::MAYBE_ZERO, false)?;
-    let serial = serial.to_asn1_integer()?;
+    let key = cert::generate_key()?;
+    let name = cert::name(common_name)?;
+    let serial = cert::random_serial()?;
 
     let not_before = Asn1Time::days_from_now(0)?;
     let not_after = Asn1Time::days_from_now(VALIDITY_DAYS)?;
@@ -144,7 +132,7 @@ fn create_self_signed(
     let mut basic_constraints = BasicConstraints::new();
     basic_constraints.critical().ca();
     if issues_certificates {
-        // Don't allow this certificate to be used to sign other certificates.
+        // Tell verifiers that no CA may follow this certificate in a chain.
         basic_constraints.pathlen(0);
     }
     builder.append_extension(basic_constraints.build()?)?;
