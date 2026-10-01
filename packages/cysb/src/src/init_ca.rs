@@ -2,7 +2,7 @@
 //!
 //! # UEFI variables
 //!
-//! Secure Boot is configured by four UEFI variables. Each holds a list of X.509 certificates:
+//! Secure Boot is configured by four UEFI variables:
 //!
 //! - `PK` (Platform Key) holds exactly one certificate. The holder of this key may update `PK` and `KEK`.
 //! - `KEK` (Key Exchange Key) holds any number of certificates. The key of any of them may update `db` and `dbx`.
