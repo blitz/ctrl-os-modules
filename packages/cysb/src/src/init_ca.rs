@@ -150,7 +150,7 @@ fn create_self_signed(
         &key,
         common_name,
         VALIDITY_DAYS,
-        Issuer::SelfSigned,
+        Issuer::SelfSigned { key: key.clone() },
         extensions,
     )?;
 

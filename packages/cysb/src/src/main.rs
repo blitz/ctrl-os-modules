@@ -1,6 +1,7 @@
 mod cert;
 mod create_signing_key;
 mod init_ca;
+mod issue_signing_certificate;
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
@@ -24,9 +25,15 @@ enum Command {
 
     /// Create a new key for signing UEFI binaries.
     ///
-    /// The key's certificate is issued by the db CA. Firmware boots binaries signed with this key, because the db CA
-    /// certificate is enrolled in db.
+    /// This creates the key and a certificate signing request (CSR). Use issue-signing-certificate to turn the CSR
+    /// into a certificate.
     CreateSigningKey(create_signing_key::Opts),
+
+    /// Issue a certificate for a key that signs UEFI binaries.
+    ///
+    /// The certificate is issued by the db CA. Firmware boots binaries signed with the key, because the db CA
+    /// certificate is enrolled in db.
+    IssueSigningCertificate(issue_signing_certificate::Opts),
 }
 
 fn main() -> Result<()> {
@@ -43,5 +50,8 @@ fn main() -> Result<()> {
     match cli.command {
         Command::InitCA(opts) => opts.run().context("Failed to initialize CA"),
         Command::CreateSigningKey(opts) => opts.run().context("Failed to create signing key"),
+        Command::IssueSigningCertificate(opts) => {
+            opts.run().context("Failed to issue signing certificate")
+        }
     }
 }

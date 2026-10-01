@@ -4,7 +4,7 @@ use openssl::{
     asn1::{Asn1Integer, Asn1Time},
     bn::{BigNum, MsbOption},
     hash::MessageDigest,
-    pkey::{PKey, PKeyRef, Private},
+    pkey::{HasPublic, PKey, PKeyRef, Private},
     rsa::Rsa,
     x509::{
         X509, X509Extension, X509Name, X509NameBuilder, X509Ref,
@@ -19,7 +19,7 @@ const RSA_KEY_BITS: u32 = 2048;
 /// Who signs a certificate.
 pub enum Issuer {
     /// The certificate is signed with its own key.
-    SelfSigned,
+    SelfSigned { key: PKey<Private> },
 
     /// The certificate is signed by a CA.
     Ca { key: PKey<Private>, cert: X509 },
@@ -30,11 +30,11 @@ pub fn generate_key() -> Result<PKey<Private>> {
     Ok(PKey::from_rsa(Rsa::generate(RSA_KEY_BITS)?)?)
 }
 
-/// Create a certificate for a given key.
+/// Create a certificate for a given public key.
 ///
 /// Extensions restrict what the certificate may be used for. Key identifiers are added automatically.
 pub fn create_certificate(
-    key: &PKeyRef<Private>,
+    key: &PKeyRef<impl HasPublic>,
     common_name: &str,
     validity_days: u32,
     issuer: Issuer,
@@ -58,9 +58,14 @@ pub fn create_certificate(
     builder.set_not_after(&not_after)?;
 
     let (signing_key, issuer_cert): (&PKeyRef<Private>, Option<&X509Ref>) = match &issuer {
-        Issuer::SelfSigned => {
+        Issuer::SelfSigned { key: own_key } => {
+            ensure!(
+                own_key.public_eq(key),
+                "The signing key does not match the certificate's key"
+            );
+
             builder.set_issuer_name(&name)?;
-            (key, None)
+            (own_key, None)
         }
         Issuer::Ca {
             key: ca_key,
