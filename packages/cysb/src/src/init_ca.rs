@@ -15,8 +15,8 @@
 //!
 //! # Keys
 //!
-//! This command creates three keys, each an RSA key with a self-signed certificate. Each certificate is enrolled as an
-//! entry in one of the variables above:
+//! This command creates three keys, each an RSA key with a self-signed certificate. Each certificate is intended to be
+//! enrolled as an entry in one of the variables above:
 //!
 //! - The PK key. Its certificate is the single entry in `PK`.
 //! - The KEK key. Its certificate is one entry in `KEK`, possibly next to others, such as Microsoft's.
