@@ -144,6 +144,7 @@ fn create_self_signed(
     let mut basic_constraints = BasicConstraints::new();
     basic_constraints.critical().ca();
     if issues_certificates {
+        // Don't allow this certificate to be used to sign other certificates.
         basic_constraints.pathlen(0);
     }
     builder.append_extension(basic_constraints.build()?)?;
