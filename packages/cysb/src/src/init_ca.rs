@@ -36,14 +36,12 @@ use anyhow::{Context, Result};
 use clap::Args;
 use log::info;
 use openssl::{
-    asn1::Asn1Time,
-    hash::MessageDigest,
     pkey::{PKey, Private},
     x509::X509,
-    x509::extension::{AuthorityKeyIdentifier, BasicConstraints, KeyUsage, SubjectKeyIdentifier},
+    x509::extension::{BasicConstraints, KeyUsage},
 };
 
-use crate::cert;
+use crate::cert::{self, Issuer};
 
 /// Firmware does not check certificate expiry, because it has no trusted time source. The validity period only
 /// matters to tools such as sbverify and must cover all certificates issued by the db CA.
@@ -110,23 +108,6 @@ fn create_self_signed(
     issues_certificates: bool,
 ) -> Result<(PKey<Private>, X509)> {
     let key = cert::generate_key()?;
-    let name = cert::name(common_name)?;
-    let serial = cert::random_serial()?;
-
-    let not_before = Asn1Time::days_from_now(0)?;
-    let not_after = Asn1Time::days_from_now(VALIDITY_DAYS)?;
-
-    let mut builder = X509::builder()?;
-
-    // X.509 v3, which is required to add extensions. Yes, 2 indicates version 3.
-    builder.set_version(2)?;
-
-    builder.set_serial_number(&serial)?;
-    builder.set_subject_name(&name)?;
-    builder.set_issuer_name(&name)?;
-    builder.set_pubkey(&key)?;
-    builder.set_not_before(&not_before)?;
-    builder.set_not_after(&not_after)?;
 
     // Mark the certificate as a CA certificate.
     let mut basic_constraints = BasicConstraints::new();
@@ -135,29 +116,25 @@ fn create_self_signed(
         // Tell verifiers that no CA may follow this certificate in a chain.
         basic_constraints.pathlen(0);
     }
-    builder.append_extension(basic_constraints.build()?)?;
+    let mut extensions = vec![basic_constraints.build()?];
 
     if issues_certificates {
-        builder.append_extension(
+        extensions.push(
             KeyUsage::new()
                 .critical()
                 .key_cert_sign()
                 .crl_sign()
                 .build()?,
-        )?;
+        );
     }
 
-    // CA certificates must have this.
-    let subject_key_id = SubjectKeyIdentifier::new().build(&builder.x509v3_context(None, None))?;
-    builder.append_extension(subject_key_id)?;
+    let cert = cert::create_certificate(
+        &key,
+        common_name,
+        VALIDITY_DAYS,
+        Issuer::SelfSigned,
+        extensions,
+    )?;
 
-    let authority_key_id = AuthorityKeyIdentifier::new()
-        .keyid(true)
-        .build(&builder.x509v3_context(None, None))?;
-    builder.append_extension(authority_key_id)?;
-
-    // Self-sign the certificate.
-    builder.sign(&key, MessageDigest::sha256())?;
-
-    Ok((key, builder.build()))
+    Ok((key, cert))
 }
