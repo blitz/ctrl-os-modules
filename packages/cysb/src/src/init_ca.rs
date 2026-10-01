@@ -26,6 +26,11 @@
 //!   updating `db`.
 //!
 //! All three keys are meant to be kept offline.
+//!
+//! # Owner GUID
+//!
+//! Each entry in the variables above records the GUID of its owner. This command creates a random GUID that identifies
+//! our entries, e.g. to tell them apart from Microsoft's. It is written to `public/GUID.txt`.
 use std::{
     fs::{self, DirBuilder},
     os::unix::fs::DirBuilderExt,
@@ -40,6 +45,8 @@ use openssl::{
     x509::X509,
     x509::extension::{BasicConstraints, KeyUsage},
 };
+
+use uuid::Uuid;
 
 use crate::cert::{self, Issuer};
 
@@ -94,6 +101,14 @@ impl Opts {
             )?;
             std::fs::write(&public_dir.join(format!("{name}.crt")), &cert.to_pem()?)?;
         }
+
+        let guid_file = public_dir.join("GUID.txt");
+        let guid = Uuid::new_v4();
+
+        info!("Owner GUID: {guid}");
+
+        fs::write(&guid_file, format!("{guid}\n"))
+            .with_context(|| format!("Failed to write {}", guid_file.display()))?;
 
         Ok(())
     }
