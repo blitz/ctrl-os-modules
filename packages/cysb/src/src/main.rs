@@ -1,5 +1,7 @@
 mod cert;
 mod init_ca;
+mod create_signing_key;
+
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
@@ -20,6 +22,12 @@ struct Cli {
 enum Command {
     /// Create a new Secure Boot CA: PK, KEK and db CA.
     InitCA(init_ca::Opts),
+
+    /// Create a new key for signing UEFI binaries.
+    ///
+    /// The key's certificate is issued by the db CA. Firmware boots binaries signed with this key, because the db CA
+    /// certificate is enrolled in db.
+    CreateSigningKey(create_signing_key::Opts),
 }
 
 fn main() -> Result<()> {
@@ -35,5 +43,6 @@ fn main() -> Result<()> {
 
     match cli.command {
         Command::InitCA(opts) => opts.run().context("Failed to initialize CA"),
+        Command::CreateSigningKey(opts) => opts.run().context("Failed to create signing key"),
     }
 }
