@@ -99,11 +99,10 @@ impl Opts {
             let (key, cert) = create_self_signed(common_name, issues_certificates)
                 .with_context(|| format!("Failed to create {common_name}"))?;
 
-            std::fs::write(
-                &private_dir.join(format!("{name}.key")),
-                &key.private_key_to_pem_pkcs8()?,
-            )?;
-            std::fs::write(&public_dir.join(format!("{name}.crt")), &cert.to_pem()?)?;
+            fs::write(&key_file, key.private_key_to_pem_pkcs8()?)
+                .with_context(|| format!("Failed to write {}", key_file.display()))?;
+            fs::write(&cert_file, cert.to_pem()?)
+                .with_context(|| format!("Failed to write {}", cert_file.display()))?;
         }
 
         let guid_file = public_dir.join("GUID.txt");
