@@ -43,7 +43,7 @@ use openssl::{
     rsa::Rsa,
     x509::X509,
     x509::X509NameBuilder,
-    x509::extension::{AuthorityKeyIdentifier, BasicConstraints, SubjectKeyIdentifier},
+    x509::extension::{AuthorityKeyIdentifier, BasicConstraints, KeyUsage, SubjectKeyIdentifier},
 };
 
 /// Should be enough for any use case. Harvest and decrypt later is not a concern, because nothing is encrypted with
@@ -79,11 +79,21 @@ impl Opts {
         fs::create_dir_all(&public_dir)
             .with_context(|| format!("Failed to create {}", public_dir.display()))?;
 
-        for name in ["PK", "KEK"] {
-            info!("Creating {name}");
+        // The boolean indicates whether the key issues certificates.
+        let keys = [
+            ("PK", "Secure Boot PK", false),
+            ("KEK", "Secure Boot KEK", false),
+            ("db-ca", "Secure Boot db CA", true),
+        ];
 
-            let (key, cert) = create_self_signed(&format!("Custom Secure Boot {name}"))
-                .with_context(|| format!("Failed to create {name}"))?;
+        for (name, common_name, issues_certificates) in keys {
+            let key_file = private_dir.join(format!("{name}.key"));
+            let cert_file = public_dir.join(format!("{name}.crt"));
+
+            info!("Creating {common_name}: key={} cert={}", key_file.display(), cert_file.display());
+
+            let (key, cert) = create_self_signed(common_name, issues_certificates)
+                .with_context(|| format!("Failed to create {common_name}"))?;
 
             std::fs::write(
                 &private_dir.join(format!("{name}.key")),
@@ -97,13 +107,20 @@ impl Opts {
 }
 
 /// Create an RSA key and a self-signed CA certificate for it.
-fn create_self_signed(common_name: &str) -> Result<(PKey<Private>, X509)> {
+///
+/// If `issues_certificates` is set, the key may only sign certificates and the certificates it issues cannot be CAs
+/// themselves. Otherwise, the key is not restricted.
+fn create_self_signed(
+    common_name: &str,
+    issues_certificates: bool,
+) -> Result<(PKey<Private>, X509)> {
     let key = PKey::from_rsa(Rsa::generate(RSA_KEY_BITS)?)?;
 
     let mut name = X509NameBuilder::new()?;
     name.append_entry_by_text("CN", common_name)?;
     let name = name.build();
 
+    // A cryptographically secure random number is okay as the serial number.
     let mut serial = BigNum::new()?;
     serial.rand(128, MsbOption::MAYBE_ZERO, false)?;
     let serial = serial.to_asn1_integer()?;
@@ -124,7 +141,22 @@ fn create_self_signed(common_name: &str) -> Result<(PKey<Private>, X509)> {
     builder.set_not_after(&not_after)?;
 
     // Mark the certificate as a CA certificate.
-    builder.append_extension(BasicConstraints::new().critical().ca().build()?)?;
+    let mut basic_constraints = BasicConstraints::new();
+    basic_constraints.critical().ca();
+    if issues_certificates {
+        basic_constraints.pathlen(0);
+    }
+    builder.append_extension(basic_constraints.build()?)?;
+
+    if issues_certificates {
+        builder.append_extension(
+            KeyUsage::new()
+                .critical()
+                .key_cert_sign()
+                .crl_sign()
+                .build()?,
+        )?;
+    }
 
     // CA certificates must have this.
     let subject_key_id = SubjectKeyIdentifier::new().build(&builder.x509v3_context(None, None))?;
