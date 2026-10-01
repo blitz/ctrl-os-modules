@@ -1,11 +1,31 @@
 //! Create a new Secure Boot CA.
 //!
-//! This creates the Platform Key (PK), the Key Exchange Key (KEK) and the database CA (db CA). PK signs updates of PK
-//! and KEK, KEK signs updates of db and dbx. All three keys are meant to be kept offline.
+//! # UEFI variables
 //!
-//! The db CA certificate is enrolled in db, but the db CA does not sign UEFI binaries itself. Instead, it issues
-//! certificates for signing keys, which are typically generated in an HSM. Firmware accepts binaries signed by these
-//! keys, because their certificates are trusted by the db CA. Signing keys can thus be replaced without updating db.
+//! Secure Boot is configured by four UEFI variables. Each holds a list of X.509 certificates:
+//!
+//! - `PK` (Platform Key) holds exactly one certificate. The holder of this key may update `PK` and `KEK`.
+//! - `KEK` (Key Exchange Key) holds any number of certificates. The key of any of them may update `db` and `dbx`.
+//! - `db` (signature database) holds certificates and hashes that allow UEFI binaries to run.
+//! - `dbx` (forbidden signature database) holds certificates and hashes that forbid UEFI binaries from running. It
+//!   takes precedence over `db`.
+//!
+//! Firmware only runs a UEFI binary if it is not forbidden by `dbx`, and either its hash is in `db` or it is signed by a
+//! key whose certificate is in `db` or was issued by a certificate in `db`.
+//!
+//! # Keys
+//!
+//! This command creates three keys, each an RSA key with a self-signed certificate. Each certificate is enrolled as an
+//! entry in one of the variables above:
+//!
+//! - The PK key. Its certificate is the single entry in `PK`.
+//! - The KEK key. Its certificate is one entry in `KEK`, possibly next to others, such as Microsoft's.
+//! - The db CA key. Its certificate is one entry in `db`. It does not sign UEFI binaries itself. Instead, it issues
+//!   certificates for signing keys, which are typically generated in an HSM. Firmware accepts binaries signed by these
+//!   keys, because their certificates were issued by a certificate in `db`. Signing keys can thus be replaced without
+//!   updating `db`.
+//!
+//! All three keys are meant to be kept offline.
 use std::{
     fs::{self, DirBuilder},
     os::unix::fs::DirBuilderExt,
