@@ -1,7 +1,6 @@
 mod cert;
-mod init_ca;
 mod create_signing_key;
-
+mod init_ca;
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};

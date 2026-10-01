@@ -1,8 +1,14 @@
 //! Helpers for creating keys and certificates.
 use anyhow::{Result, ensure};
 use openssl::{
-    asn1::{Asn1Integer, Asn1Time}, bn::{BigNum, MsbOption}, hash::MessageDigest, pkey::{PKey, PKeyRef, Private}, rsa::Rsa, x509::{
-        X509, X509Extension, X509Name, X509NameBuilder, X509Ref, extension::{AuthorityKeyIdentifier, SubjectKeyIdentifier},
+    asn1::{Asn1Integer, Asn1Time},
+    bn::{BigNum, MsbOption},
+    hash::MessageDigest,
+    pkey::{PKey, PKeyRef, Private},
+    rsa::Rsa,
+    x509::{
+        X509, X509Extension, X509Name, X509NameBuilder, X509Ref,
+        extension::{AuthorityKeyIdentifier, SubjectKeyIdentifier},
     },
 };
 
