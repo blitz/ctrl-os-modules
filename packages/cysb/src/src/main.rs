@@ -2,6 +2,7 @@ mod cert;
 mod create_signing_key;
 mod init_ca;
 mod issue_signing_certificate;
+mod verify;
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
@@ -34,6 +35,11 @@ enum Command {
     /// The certificate is issued by the db CA. Firmware boots binaries signed with the key, because the db CA
     /// certificate is enrolled in db.
     IssueSigningCertificate(issue_signing_certificate::Opts),
+
+    /// Verify the signatures of UEFI binaries.
+    ///
+    /// A binary passes if it is signed by a key which is trusted by the given certificate.
+    Verify(verify::Opts),
 }
 
 fn main() -> Result<()> {
@@ -53,5 +59,6 @@ fn main() -> Result<()> {
         Command::IssueSigningCertificate(opts) => {
             opts.run().context("Failed to issue signing certificate")
         }
+        Command::Verify(opts) => opts.run().context("Failed to verify signatures"),
     }
 }
