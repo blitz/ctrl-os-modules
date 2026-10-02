@@ -1,5 +1,6 @@
 mod cert;
 mod create_signing_key;
+mod external_commands;
 mod init_ca;
 mod issue_signing_certificate;
 mod verify;
