@@ -30,7 +30,7 @@
 //! # Owner GUID
 //!
 //! Each entry in the variables above records the GUID of its owner. This command creates a random GUID that identifies
-//! our entries, e.g. to tell them apart from Microsoft's. It is written to `public/GUID.txt`.
+//! our entries, e.g. to tell them apart from Microsoft's. It is written to `public/guid.txt`.
 use std::{
     fs::{self, DirBuilder},
     os::unix::fs::DirBuilderExt,
@@ -81,8 +81,8 @@ impl Opts {
 
         // The boolean indicates whether the key issues certificates.
         let keys = [
-            ("PK", "Secure Boot PK", false),
-            ("KEK", "Secure Boot KEK", false),
+            ("pk", "Secure Boot PK", false),
+            ("kek", "Secure Boot KEK", false),
             ("db-ca", "Secure Boot db CA", true),
         ];
 
@@ -105,7 +105,7 @@ impl Opts {
                 .with_context(|| format!("Failed to write {}", cert_file.display()))?;
         }
 
-        let guid_file = public_dir.join("GUID.txt");
+        let guid_file = public_dir.join("guid.txt");
         let guid = Uuid::new_v4();
 
         info!("Owner GUID: {guid}");
