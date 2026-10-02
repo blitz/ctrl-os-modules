@@ -1,5 +1,7 @@
 //! Helpers for creating keys and certificates.
-use anyhow::{Result, ensure};
+use std::{fs, path::Path};
+
+use anyhow::{Context, Result, ensure};
 use openssl::{
     asn1::{Asn1Integer, Asn1Time},
     bn::{BigNum, MsbOption},
@@ -7,7 +9,7 @@ use openssl::{
     pkey::{HasPublic, PKey, PKeyRef, Private},
     rsa::Rsa,
     x509::{
-        X509, X509Extension, X509Name, X509NameBuilder, X509Ref,
+        X509, X509Extension, X509Name, X509NameBuilder, X509Ref, X509Req,
         extension::{AuthorityKeyIdentifier, SubjectKeyIdentifier},
     },
 };
@@ -114,4 +116,46 @@ fn random_serial() -> Result<Asn1Integer> {
     let mut serial = BigNum::new()?;
     serial.rand(128, MsbOption::MAYBE_ZERO, false)?;
     Ok(serial.to_asn1_integer()?)
+}
+
+/// Read a certificate in PEM or DER format.
+pub fn read_certificate(path: &Path) -> Result<X509> {
+    let data = read_file(path)?;
+
+    (match identify_format(&data) {
+        Format::PEM => X509::from_pem(&data),
+        Format::DER => X509::from_der(&data),
+    }).with_context(|| format!("Failed to parse {} as certificate", path.display()))
+}
+
+/// Read a certificate signing request in PEM or DER format.
+///
+/// HSMs often hand out CSRs in DER format, while OpenSSL defaults to PEM.
+pub fn read_csr(path: &Path) -> Result<X509Req> {
+    let data = read_file(path)?;
+
+    (match identify_format(&data) {
+        Format::PEM => X509Req::from_pem(&data),
+        Format::DER => X509Req::from_der(&data),
+    }).with_context(|| format!("Failed to parse {} as CSR", path.display()))
+}
+
+fn read_file(path: &Path) -> Result<Vec<u8>> {
+    fs::read(path).with_context(|| format!("Failed to read {}", path.display()))
+}
+
+enum Format {
+    /// "Privacy Enhanced Mail"
+    PEM,
+    /// "Distinguished Encoding Rules"
+    DER,
+}
+
+/// A quick and dirty way to infer the format of a certificate or CSR.
+fn identify_format(data: &[u8]) -> Format {
+    if data.starts_with(b"-----BEGIN") {
+        Format::PEM
+    } else {
+        Format::DER
+    }
 }
