@@ -7,7 +7,7 @@ use std::{
     process::Command,
 };
 
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result};
 use clap::Args;
 use tempfile::NamedTempFile;
 
@@ -49,22 +49,10 @@ impl Opts {
 
 /// Verify the signature of a single binary with sbverify.
 fn verify_file(certificate: &Path, file: &Path) -> Result<()> {
-    let output = Command::new("sbverify")
-        .arg("--cert")
-        .arg(certificate)
-        .arg(file)
-        .output()
-        .context("Failed to execute sbverify")?;
-
-    if output.status.success() {
-        return Ok(());
-    }
-
-    // sbverify prints its reasons to both stdout and stderr.
-    let message = format!(
-        "{}{}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
-    bail!("{}", message.trim_end());
+    external_commands::run(
+        Command::new("sbverify")
+            .arg("--cert")
+            .arg(certificate)
+            .arg(file),
+    )
 }
