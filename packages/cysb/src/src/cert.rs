@@ -125,7 +125,8 @@ pub fn read_certificate(path: &Path) -> Result<X509> {
     (match identify_format(&data) {
         Format::PEM => X509::from_pem(&data),
         Format::DER => X509::from_der(&data),
-    }).with_context(|| format!("Failed to parse {} as certificate", path.display()))
+    })
+    .with_context(|| format!("Failed to parse {} as certificate", path.display()))
 }
 
 /// Read a certificate signing request in PEM or DER format.
@@ -137,7 +138,8 @@ pub fn read_csr(path: &Path) -> Result<X509Req> {
     (match identify_format(&data) {
         Format::PEM => X509Req::from_pem(&data),
         Format::DER => X509Req::from_der(&data),
-    }).with_context(|| format!("Failed to parse {} as CSR", path.display()))
+    })
+    .with_context(|| format!("Failed to parse {} as CSR", path.display()))
 }
 
 fn read_file(path: &Path) -> Result<Vec<u8>> {
