@@ -4,7 +4,9 @@ mod util;
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 
-use cli::{create_signing_key, init_ca, issue_signing_certificate, sign_file, verify};
+use cli::{
+    create_enrollment, create_signing_key, init_ca, issue_signing_certificate, sign_file, verify,
+};
 
 /// Manage the Secure Boot keys of Cyberus Linux.
 #[derive(Debug, Parser)]
@@ -23,6 +25,7 @@ enum Command {
     /// Create a new Secure Boot CA: PK, KEK and db CA.
     InitCA(init_ca::Opts),
 
+    /// Create a new signing key.
     /// Create a new key for signing UEFI binaries.
     ///
     /// This creates the key and a certificate signing request (CSR). Use issue-signing-certificate to turn the CSR
@@ -34,6 +37,12 @@ enum Command {
     /// The certificate is issued by the db CA. Firmware boots binaries signed with the key, because the db CA
     /// certificate is enrolled in db.
     IssueSigningCertificate(issue_signing_certificate::Opts),
+
+    /// Create an enrollment package for systemd-boot.
+    ///
+    /// The package contains the signed updates of PK, KEK and db. systemd-boot enrolls them from
+    /// loader/keys/<NAME>/ on the ESP while the firmware is in setup mode.
+    CreateEnrollment(create_enrollment::Opts),
 
     /// Sign a UEFI binary.
     ///
@@ -60,6 +69,9 @@ fn main() -> Result<()> {
 
     match cli.command {
         Command::InitCA(opts) => opts.run().context("Failed to initialize CA"),
+        Command::CreateEnrollment(opts) => {
+            opts.run().context("Failed to create enrollment package")
+        }
         Command::CreateSigningKey(opts) => opts.run().context("Failed to create signing key"),
         Command::IssueSigningCertificate(opts) => {
             opts.run().context("Failed to issue signing certificate")
