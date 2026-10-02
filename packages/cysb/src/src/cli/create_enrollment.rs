@@ -7,8 +7,8 @@
 //! The package contains:
 //!
 //! - `PK.auth`: the PK certificate, signed by the PK key.
-//! - `KEK.auth`: the KEK CA certificate, signed by the PK key.
-//! - `db.auth`: the db CA certificate, signed by a KEK signing key.
+//! - `KEK.auth`: the KEK certificate, signed by the PK key.
+//! - `db.auth`: the db CA certificate, signed by the KEK key.
 //!
 //! There is no `dbx.auth`, because there is nothing to forbid yet.
 use std::path::PathBuf;
@@ -32,20 +32,13 @@ pub struct Opts {
     #[arg(long)]
     pk_certificate: PathBuf,
 
-    /// Certificate of the KEK CA, e.g. public/kek-ca.crt as created by init-ca. Enrolled in KEK.
+    /// Private key of the KEK, e.g. private/kek.key as created by init-ca. Signs the update of db.
     #[arg(long)]
-    kek_ca_certificate: PathBuf,
+    kek_key: PathBuf,
 
-    /// Private key of a KEK signing key. Signs the update of db.
-    ///
-    /// Create it with create-signing-key and let the KEK CA issue its certificate with issue-signing-certificate
-    /// --purpose kek. The KEK CA key itself cannot be used here, because it may only issue certificates.
+    /// Certificate of the KEK, e.g. public/kek.crt as created by init-ca. Enrolled in KEK.
     #[arg(long)]
-    kek_signing_key: PathBuf,
-
-    /// Certificate of the KEK signing key, issued by the KEK CA.
-    #[arg(long)]
-    kek_signing_certificate: PathBuf,
+    kek_certificate: PathBuf,
 
     /// Certificate of the db CA, e.g. public/db-ca.crt as created by init-ca. Enrolled in db.
     #[arg(long)]

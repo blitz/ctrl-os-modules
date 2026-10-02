@@ -25,7 +25,6 @@ enum Command {
     /// Create a new Secure Boot CA: PK, KEK and db CA.
     InitCA(init_ca::Opts),
 
-    /// Create a new signing key.
     /// Create a new key for signing UEFI binaries.
     ///
     /// This creates the key and a certificate signing request (CSR). Use issue-signing-certificate to turn the CSR
