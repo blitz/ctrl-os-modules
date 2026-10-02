@@ -11,7 +11,7 @@ use anyhow::{Context, Result, bail};
 use clap::Args;
 use tempfile::NamedTempFile;
 
-use crate::{cert, external_commands};
+use crate::util::{cert, external_commands};
 
 /// Verify the signatures of UEFI binaries.
 #[derive(Debug, Args)]

@@ -19,7 +19,7 @@ use openssl::{
     x509::extension::{BasicConstraints, ExtendedKeyUsage, KeyUsage},
 };
 
-use crate::cert::{self, Issuer, read_csr};
+use crate::util::cert::{self, Issuer, read_csr};
 
 /// Firmware does not check certificate expiry. Tools such as sbverify do, so this must not exceed the validity of the
 /// db CA certificate.

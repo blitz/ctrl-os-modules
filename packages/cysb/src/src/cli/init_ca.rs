@@ -48,7 +48,7 @@ use openssl::{
 
 use uuid::Uuid;
 
-use crate::cert::{self, Issuer};
+use crate::util::cert::{self, Issuer};
 
 /// Firmware does not check certificate expiry, because it has no trusted time source. The validity period only
 /// matters to tools such as sbverify and must cover all certificates issued by the db CA.

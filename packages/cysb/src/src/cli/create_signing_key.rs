@@ -14,7 +14,7 @@ use openssl::{
     x509::{X509Req, X509ReqBuilder},
 };
 
-use crate::cert;
+use crate::util::cert;
 
 /// Create a new key for signing UEFI binaries.
 #[derive(Debug, Args)]
