@@ -1,13 +1,10 @@
-mod cert;
-mod create_signing_key;
-mod external_commands;
-mod init_ca;
-mod issue_signing_certificate;
-mod sign_file;
-mod verify;
+mod cli;
+mod util;
 
 use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
+
+use cli::{create_signing_key, init_ca, issue_signing_certificate, sign_file, verify};
 
 /// Manage the Secure Boot keys of Cyberus Linux.
 #[derive(Debug, Parser)]

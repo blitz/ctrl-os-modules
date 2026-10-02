@@ -7,7 +7,7 @@ use anyhow::{Context, Result, ensure};
 use clap::Args;
 use log::info;
 
-use crate::external_commands;
+use crate::util::external_commands;
 
 /// Sign a UEFI binary.
 #[derive(Debug, Args)]
