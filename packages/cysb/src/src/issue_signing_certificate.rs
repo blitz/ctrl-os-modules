@@ -8,7 +8,7 @@
 use std::{
     fs::{self, OpenOptions},
     io::Write,
-    path::{Path, PathBuf},
+    path::PathBuf,
 };
 
 use anyhow::{Context, Result, ensure};
@@ -16,13 +16,10 @@ use clap::Args;
 use log::{info, warn};
 use openssl::{
     pkey::{Id, PKey},
-    x509::{
-        X509, X509Req,
-        extension::{BasicConstraints, ExtendedKeyUsage, KeyUsage},
-    },
+    x509::extension::{BasicConstraints, ExtendedKeyUsage, KeyUsage},
 };
 
-use crate::cert::{self, Issuer};
+use crate::cert::{self, Issuer, read_csr};
 
 /// Firmware does not check certificate expiry. Tools such as sbverify do, so this must not exceed the validity of the
 /// db CA certificate.
@@ -62,10 +59,7 @@ impl Opts {
             &fs::read(&self.db_ca_key)
                 .with_context(|| format!("Failed to read {}", self.db_ca_key.display()))?,
         )?;
-        let ca_cert =
-            X509::from_pem(&fs::read(&self.db_ca_certificate).with_context(|| {
-                format!("Failed to read {}", self.db_ca_certificate.display())
-            })?)?;
+        let ca_cert = cert::read_certificate(&self.db_ca_certificate)?;
 
         // Sanity check whether the given key and certificate match.
         ensure!(
@@ -131,19 +125,4 @@ impl Opts {
 
         Ok(())
     }
-}
-
-/// Read a certificate signing request in PEM or DER format.
-///
-/// HSMs often hand out CSRs in DER format, while OpenSSL defaults to PEM.
-fn read_csr(path: &Path) -> Result<X509Req> {
-    let data = fs::read(path).with_context(|| format!("Failed to read {}", path.display()))?;
-
-    let csr = if data.starts_with(b"-----BEGIN") {
-        X509Req::from_pem(&data)
-    } else {
-        X509Req::from_der(&data)
-    };
-
-    csr.with_context(|| format!("Failed to parse {} as CSR", path.display()))
 }
