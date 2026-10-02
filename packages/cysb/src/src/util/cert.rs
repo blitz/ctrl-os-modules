@@ -142,6 +142,22 @@ pub fn read_csr(path: &Path) -> Result<X509Req> {
     .with_context(|| format!("Failed to parse {} as CSR", path.display()))
 }
 
+/// Read a private key in PEM format and its certificate in PEM or DER format, and check that they belong together.
+pub fn read_key_pair(key_path: &Path, cert_path: &Path) -> Result<(PKey<Private>, X509)> {
+    let key = PKey::private_key_from_pem(&read_file(key_path)?)
+        .with_context(|| format!("Failed to parse {} as private key", key_path.display()))?;
+    let cert = read_certificate(cert_path)?;
+
+    ensure!(
+        cert.public_key()?.public_eq(&key),
+        "{} does not belong to {}",
+        key_path.display(),
+        cert_path.display()
+    );
+
+    Ok((key, cert))
+}
+
 fn read_file(path: &Path) -> Result<Vec<u8>> {
     fs::read(path).with_context(|| format!("Failed to read {}", path.display()))
 }

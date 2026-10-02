@@ -22,3 +22,27 @@ pub fn check_command(command: &Path, not_found_hint: &str) -> Result<()> {
         Err(err) => Err(err).with_context(|| format!("Failed to execute {}", command.display())),
     }
 }
+
+/// Run a command and fail with its output if it does not succeed.
+pub fn run(command: &mut Command) -> Result<()> {
+    let program = command.get_program().to_string_lossy().into_owned();
+    let output = command
+        .output()
+        .with_context(|| format!("Failed to execute {program}"))?;
+
+    if !output.status.success() {
+        // Tools print their reasons to stdout or stderr, so we include both.
+        let message = format!(
+            "{}{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        bail!(
+            "{program} failed ({}): {}",
+            output.status,
+            message.trim_end()
+        );
+    }
+
+    Ok(())
+}
