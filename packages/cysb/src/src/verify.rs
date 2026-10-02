@@ -2,7 +2,7 @@
 //!
 //! The actual verification is done by sbverify from sbsigntools.
 use std::{
-    io::{ErrorKind, Write},
+    io::Write,
     path::{Path, PathBuf},
     process::Command,
 };
@@ -11,7 +11,7 @@ use anyhow::{Context, Result, bail};
 use clap::Args;
 use tempfile::NamedTempFile;
 
-use crate::cert;
+use crate::{cert, external_commands};
 
 /// Verify the signatures of UEFI binaries.
 #[derive(Debug, Args)]
@@ -20,14 +20,17 @@ pub struct Opts {
     #[arg(short, long)]
     certificate: PathBuf,
 
-    /// UEFI binaries to verify.
+    /// UEFI binary to verify.
     #[arg(required = true)]
-    files: Vec<PathBuf>,
+    file: PathBuf,
 }
 
 impl Opts {
     pub fn run(&self) -> Result<()> {
-        check_sbverify()?;
+        external_commands::check_command(
+            Path::new("sbverify"),
+            "Install sbsigntools, e.g. via nix-shell -p sbsigntool.",
+        )?;
 
         // sbverify only reads certificates in PEM format, so we hand it a PEM copy of the certificate.
         let certificate = cert::read_certificate(&self.certificate)?;
@@ -37,38 +40,10 @@ impl Opts {
             .write_all(&certificate.to_pem()?)
             .context("Failed to write temporary certificate file")?;
 
-        // We want to try to verify all files regardless of whether some are signed or not.
-        let results = self
-            .files
-            .iter()
-            .map(|f| -> Result<()> {
-                print!("Verifying {}: ", f.display());
-                verify_file(pem_file.path(), f).inspect_err(|e| println!(" FAILED: {}", e))?;
-                println!("OK");
-                Ok(())
-            })
-            .collect::<Vec<Result<()>>>();
-
-        if results.into_iter().any(|r| r.is_err()) {
-            bail!("Verification failed");
-        }
+        print!("Verifying {}: ", self.file.display());
+        verify_file(pem_file.path(), &self.file).inspect_err(|e| println!(" FAILED: {}", e))?;
+        println!("OK");
         Ok(())
-    }
-}
-
-/// Check whether sbverify can be executed and give actionable error messages.
-fn check_sbverify() -> Result<()> {
-    match Command::new("sbverify").arg("--version").output() {
-        Ok(output) if output.status.success() => Ok(()),
-        Ok(output) => bail!(
-            "sbverify --version failed: {}",
-            String::from_utf8_lossy(&output.stderr).trim()
-        ),
-        Err(err) if err.kind() == ErrorKind::NotFound => bail!(
-            "sbverify was not found. Install sbsigntools: \
-             nix-shell -p sbsigntool"
-        ),
-        Err(err) => Err(err).context("Failed to execute sbverify"),
     }
 }
 
