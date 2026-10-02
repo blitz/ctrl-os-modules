@@ -3,6 +3,7 @@ mod create_signing_key;
 mod external_commands;
 mod init_ca;
 mod issue_signing_certificate;
+mod sign_file;
 mod verify;
 
 use anyhow::{Context, Result};
@@ -37,6 +38,12 @@ enum Command {
     /// certificate is enrolled in db.
     IssueSigningCertificate(issue_signing_certificate::Opts),
 
+    /// Sign a UEFI binary.
+    ///
+    /// Firmware boots the signed binary if the certificate of the signing key was issued by the db CA. The signing is
+    /// done by systemd-sbsign. For more information, see the systemd-sbsign man page.
+    SignFile(sign_file::Opts),
+
     /// Verify the signatures of UEFI binaries.
     ///
     /// A binary passes if it is signed by a key which is trusted by the given certificate.
@@ -60,6 +67,7 @@ fn main() -> Result<()> {
         Command::IssueSigningCertificate(opts) => {
             opts.run().context("Failed to issue signing certificate")
         }
+        Command::SignFile(opts) => opts.run().context("Failed to sign file"),
         Command::Verify(opts) => opts.run().context("Failed to verify signatures"),
     }
 }
