@@ -1,6 +1,4 @@
 //! Verify the signatures of UEFI binaries.
-//!
-//! The actual verification is done by sbverify from sbsigntools.
 use std::{
     io::Write,
     path::{Path, PathBuf},

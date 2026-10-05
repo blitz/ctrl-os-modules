@@ -13,20 +13,6 @@
 //! Firmware only runs a UEFI binary if it is not forbidden by `dbx`, and either its hash is in `db` or it is signed by a
 //! key whose certificate is in `db` or was issued by a certificate in `db`.
 //!
-//! # Keys
-//!
-//! This command creates three keys, each an RSA key with a self-signed certificate. Each certificate is intended to be
-//! enrolled as an entry in one of the variables above:
-//!
-//! - The PK key. Its certificate is the single entry in `PK`.
-//! - The KEK key. Its certificate is one entry in `KEK`, possibly next to others, such as Microsoft's.
-//! - The signing CA key. Its certificate is one entry in `db`. It does not sign UEFI binaries itself. Instead, it
-//!   issues certificates for signing keys, which are typically generated in an HSM. Firmware accepts binaries signed by
-//!   these keys, because their certificates were issued by a certificate in `db`. Signing keys can thus be replaced
-//!   without updating `db`.
-//!
-//! All three keys are meant to be kept offline.
-//!
 //! # Owner GUID
 //!
 //! Each entry in the variables above records the GUID of its owner. This command creates a random GUID that identifies

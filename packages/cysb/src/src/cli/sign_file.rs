@@ -1,6 +1,4 @@
 //! Sign a UEFI binary.
-//!
-//! The actual signing is done by systemd-sbsign.
 use std::{path::PathBuf, process::Command};
 
 use anyhow::{Context, Result, ensure};

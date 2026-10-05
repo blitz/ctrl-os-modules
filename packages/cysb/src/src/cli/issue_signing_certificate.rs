@@ -1,7 +1,7 @@
 //! Issue a certificate for a key that signs UEFI binaries.
 //!
-//! The key is given as a certificate signing request (CSR), e.g. from create-signing-key or from an HSM. Only its
-//! public key is used. The name, validity and extensions of the certificate are decided here.
+//! Only the public key of the certificate signing request (CSR) is used. The name, validity and extensions of the
+//! certificate are decided here.
 //!
 //! The certificate does not need to be enrolled in `db`, because it is embedded in every signed binary and firmware
 //! checks that it was issued by the signing CA certificate in `db`.

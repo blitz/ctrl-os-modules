@@ -1,8 +1,4 @@
 //! Create a key for signing UEFI binaries.
-//!
-//! This creates the key and a certificate signing request (CSR) for it. The CSR is then turned into a certificate by
-//! the signing CA with issue-signing-certificate. This is the same flow as for keys generated in an HSM, which also
-//! only hand out a CSR.
 use std::{fs, os::unix::fs::DirBuilderExt, path::PathBuf};
 
 use anyhow::{Context, Result};

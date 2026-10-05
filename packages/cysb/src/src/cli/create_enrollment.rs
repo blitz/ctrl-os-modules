@@ -1,21 +1,13 @@
 //! Create an enrollment package for systemd-boot.
 //!
-//! systemd-boot can enroll Secure Boot keys from the ESP while the firmware is in setup mode. It expects the signed
-//! variable updates in `loader/keys/<name>/` as `PK.auth`, `KEK.auth`, `db.auth` and optionally `dbx.auth`, where
-//! `<name>` is shown in its menu. Whether it does so automatically is controlled by `secure-boot-enroll` in
-//! `loader.conf`.
-//!
-//! This command only creates the `.auth` files. Placing them on the ESP is up to the caller.
-//!
 //! The package contains:
 //!
 //! - `PK.auth`: the PK certificate, signed by the PK key.
 //! - `KEK.auth`: the KEK certificate, signed by the PK key.
 //! - `db.auth`: the signing CA certificate, signed by the KEK key.
 //!
-//! There is no `dbx.auth`, because there is nothing to forbid yet.
-//!
-//! The signature lists and signed updates are created by cert-to-efi-sig-list and sign-efi-sig-list from efitools.
+//! systemd-boot would also enroll a `dbx.auth`, but there is nothing to forbid yet. Whether systemd-boot enrolls the
+//! package automatically is controlled by `secure-boot-enroll` in `loader.conf`.
 use std::{
     fs,
     path::{Path, PathBuf},
