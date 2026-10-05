@@ -1,8 +1,8 @@
 //! Create a key for signing UEFI binaries.
 //!
 //! This creates the key and a certificate signing request (CSR) for it. The CSR is then turned into a certificate by
-//! the db CA with issue-signing-certificate. This is the same flow as for keys generated in an HSM, which also only
-//! hand out a CSR.
+//! the signing CA with issue-signing-certificate. This is the same flow as for keys generated in an HSM, which also
+//! only hand out a CSR.
 use std::{fs, os::unix::fs::DirBuilderExt, path::PathBuf};
 
 use anyhow::{Context, Result};
@@ -56,8 +56,8 @@ impl Opts {
 
 /// Create a certificate signing request for the given key.
 ///
-/// The CSR only serves to transport the public key to the db CA and to prove that the requester holds the private
-/// key. It has no subject or extensions, because the db CA decides on those when it issues the certificate.
+/// The CSR only serves to transport the public key to the signing CA and to prove that the requester holds the private
+/// key. It has no subject or extensions, because the signing CA decides on those when it issues the certificate.
 fn create_csr(key: &PKeyRef<Private>) -> Result<X509Req> {
     let mut builder = X509ReqBuilder::new()?;
 

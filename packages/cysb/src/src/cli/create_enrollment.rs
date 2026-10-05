@@ -11,7 +11,7 @@
 //!
 //! - `PK.auth`: the PK certificate, signed by the PK key.
 //! - `KEK.auth`: the KEK certificate, signed by the PK key.
-//! - `db.auth`: the db CA certificate, signed by the KEK key.
+//! - `db.auth`: the signing CA certificate, signed by the KEK key.
 //!
 //! There is no `dbx.auth`, because there is nothing to forbid yet.
 //!
@@ -54,9 +54,9 @@ pub struct Opts {
     #[arg(long)]
     kek_certificate: PathBuf,
 
-    /// Certificate of the db CA, e.g. public/db-ca.crt as created by init-ca. Enrolled in db.
+    /// Certificate of the signing CA, e.g. public/signing-ca.crt as created by init-ca. Enrolled in db.
     #[arg(long)]
-    db_ca_certificate: PathBuf,
+    signing_ca_certificate: PathBuf,
 
     /// Directory to write PK.auth, KEK.auth and db.auth to. Copy them to loader/keys/<NAME>/ on the ESP for
     /// systemd-boot.
@@ -77,14 +77,14 @@ impl Opts {
         // rejects.
         let (_, pk_cert) = cert::read_key_pair(&self.pk_key, &self.pk_certificate)?;
         let (_, kek_cert) = cert::read_key_pair(&self.kek_key, &self.kek_certificate)?;
-        let db_ca_cert = cert::read_certificate(&self.db_ca_certificate)?;
+        let signing_ca_cert = cert::read_certificate(&self.signing_ca_certificate)?;
 
         // efitools only reads certificates in PEM format, while ours may also be in DER format. The directory also
         // holds the intermediate signature lists and is removed when it goes out of scope.
         let work = TempDir::new().context("Failed to create temporary directory")?;
         let pk_pem = write_pem(&work, "pk.crt", &pk_cert)?;
         let kek_pem = write_pem(&work, "kek.crt", &kek_cert)?;
-        let db_ca_pem = write_pem(&work, "db-ca.crt", &db_ca_cert)?;
+        let signing_ca_pem = write_pem(&work, "signing-ca.crt", &signing_ca_cert)?;
 
         fs::create_dir_all(&self.output_directory)
             .with_context(|| format!("Failed to create {}", self.output_directory.display()))?;
@@ -93,7 +93,7 @@ impl Opts {
         let updates = [
             ("PK", &pk_pem, &self.pk_key, &pk_pem),
             ("KEK", &kek_pem, &self.pk_key, &pk_pem),
-            ("db", &db_ca_pem, &self.kek_key, &kek_pem),
+            ("db", &signing_ca_pem, &self.kek_key, &kek_pem),
         ];
 
         for (variable, enrolled_cert, signing_key, signing_cert) in updates {

@@ -16,9 +16,9 @@ use crate::util::{cert, external_commands};
 /// Verify the signatures of UEFI binaries.
 #[derive(Debug, Args)]
 pub struct Opts {
-    /// The db CA certificate in PEM or DER format.
-    #[arg(short, long)]
-    certificate: PathBuf,
+    /// Certificate of the signing CA in PEM or DER format, e.g. public/signing-ca.crt as created by init-ca.
+    #[arg(short = 'c', long)]
+    signing_ca_certificate: PathBuf,
 
     /// UEFI binary to verify.
     #[arg(required = true)]
@@ -33,7 +33,7 @@ impl Opts {
         )?;
 
         // sbverify only reads certificates in PEM format, so we hand it a PEM copy of the certificate.
-        let certificate = cert::read_certificate(&self.certificate)?;
+        let certificate = cert::read_certificate(&self.signing_ca_certificate)?;
         let mut pem_file =
             NamedTempFile::new().context("Failed to create temporary certificate file")?;
         pem_file

@@ -20,10 +20,10 @@
 //!
 //! - The PK key. Its certificate is the single entry in `PK`.
 //! - The KEK key. Its certificate is one entry in `KEK`, possibly next to others, such as Microsoft's.
-//! - The db CA key. Its certificate is one entry in `db`. It does not sign UEFI binaries itself. Instead, it issues
-//!   certificates for signing keys, which are typically generated in an HSM. Firmware accepts binaries signed by these
-//!   keys, because their certificates were issued by a certificate in `db`. Signing keys can thus be replaced without
-//!   updating `db`.
+//! - The signing CA key. Its certificate is one entry in `db`. It does not sign UEFI binaries itself. Instead, it
+//!   issues certificates for signing keys, which are typically generated in an HSM. Firmware accepts binaries signed by
+//!   these keys, because their certificates were issued by a certificate in `db`. Signing keys can thus be replaced
+//!   without updating `db`.
 //!
 //! All three keys are meant to be kept offline.
 //!
@@ -51,7 +51,7 @@ use uuid::Uuid;
 use crate::util::cert::{self, Issuer};
 
 /// Firmware does not check certificate expiry, because it has no trusted time source. The validity period only
-/// matters to tools such as sbverify and must cover all certificates issued by the db CA.
+/// matters to tools such as sbverify and must cover all certificates issued by the signing CA.
 const VALIDITY_DAYS: u32 = 20 /* years */ * 365;
 
 /// Create a new Secure Boot CA.
@@ -83,7 +83,7 @@ impl Opts {
         let keys = [
             ("pk", "Secure Boot PK", false),
             ("kek", "Secure Boot KEK", false),
-            ("db-ca", "Secure Boot db CA", true),
+            ("signing-ca", "Secure Boot Signing CA", true),
         ];
 
         for (name, common_name, issues_certificates) in keys {

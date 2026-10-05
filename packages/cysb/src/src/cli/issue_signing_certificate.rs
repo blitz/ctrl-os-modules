@@ -4,7 +4,7 @@
 //! public key is used. The name, validity and extensions of the certificate are decided here.
 //!
 //! The certificate does not need to be enrolled in `db`, because it is embedded in every signed binary and firmware
-//! checks that it was issued by the db CA certificate in `db`.
+//! checks that it was issued by the signing CA certificate in `db`.
 use std::{
     fs::{self, OpenOptions},
     io::Write,
@@ -22,7 +22,7 @@ use openssl::{
 use crate::util::cert::{self, Issuer, read_csr};
 
 /// Firmware does not check certificate expiry. Tools such as sbverify do, so this must not exceed the validity of the
-/// db CA certificate.
+/// signing CA certificate.
 const VALIDITY_DAYS: u32 = 5 /* years */ * 365;
 
 /// The key size that all firmware supports.
@@ -31,13 +31,13 @@ const COMPATIBLE_RSA_KEY_BITS: u32 = 2048;
 /// Issue a certificate for a key that signs UEFI binaries.
 #[derive(Debug, Args)]
 pub struct Opts {
-    /// Private key of the db CA. This is the private/db-ca.key as created by init-ca.
+    /// Private key of the signing CA. This is the private/signing-ca.key as created by init-ca.
     #[arg(long)]
-    db_ca_key: PathBuf,
+    signing_ca_key: PathBuf,
 
-    /// Certificate of the db CA. This is the public/db-ca.crt as created by init-ca.
+    /// Certificate of the signing CA. This is the public/signing-ca.crt as created by init-ca.
     #[arg(long)]
-    db_ca_certificate: PathBuf,
+    signing_ca_certificate: PathBuf,
 
     /// Certificate signing request of the signing key in PEM or DER format, e.g. signing.csr as created by
     /// create-signing-key.
@@ -56,17 +56,17 @@ pub struct Opts {
 impl Opts {
     pub fn run(&self) -> Result<()> {
         let ca_key = PKey::private_key_from_pem(
-            &fs::read(&self.db_ca_key)
-                .with_context(|| format!("Failed to read {}", self.db_ca_key.display()))?,
+            &fs::read(&self.signing_ca_key)
+                .with_context(|| format!("Failed to read {}", self.signing_ca_key.display()))?,
         )?;
-        let ca_cert = cert::read_certificate(&self.db_ca_certificate)?;
+        let ca_cert = cert::read_certificate(&self.signing_ca_certificate)?;
 
         // Sanity check whether the given key and certificate match.
         ensure!(
             ca_cert.public_key()?.public_eq(&ca_key),
             "{} does not belong to {}",
-            self.db_ca_key.display(),
-            self.db_ca_certificate.display()
+            self.signing_ca_key.display(),
+            self.signing_ca_certificate.display()
         );
 
         let csr = read_csr(&self.csr)?;

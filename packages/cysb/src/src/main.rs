@@ -22,7 +22,7 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Command {
-    /// Create a new Secure Boot CA: PK, KEK and db CA.
+    /// Create a new Secure Boot CA: PK, KEK and signing CA.
     InitCA(init_ca::Opts),
 
     /// Create a new key for signing UEFI binaries.
@@ -33,7 +33,7 @@ enum Command {
 
     /// Issue a certificate for a key that signs UEFI binaries.
     ///
-    /// The certificate is issued by the db CA. Firmware boots binaries signed with the key, because the db CA
+    /// The certificate is issued by the signing CA. Firmware boots binaries signed with the key, because the signing CA
     /// certificate is enrolled in db.
     IssueSigningCertificate(issue_signing_certificate::Opts),
 
@@ -45,8 +45,8 @@ enum Command {
 
     /// Sign a UEFI binary.
     ///
-    /// Firmware boots the signed binary if the certificate of the signing key was issued by the db CA. The signing is
-    /// done by systemd-sbsign. For more information, see the systemd-sbsign man page.
+    /// Firmware boots the signed binary if the certificate of the signing key was issued by the signing CA. The
+    /// signing is done by systemd-sbsign. For more information, see the systemd-sbsign man page.
     SignFile(sign_file::Opts),
 
     /// Verify the signatures of UEFI binaries.
