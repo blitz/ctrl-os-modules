@@ -5,7 +5,8 @@ use anyhow::{Context, Result};
 use clap::{Parser, Subcommand};
 
 use cli::{
-    create_enrollment, create_signing_key, init_ca, issue_signing_certificate, sign_file, verify,
+    bless_image, create_enrollment, create_signing_key, init_ca, issue_signing_certificate,
+    sign_file, verify,
 };
 
 /// Manage the Secure Boot keys of Cyberus Linux.
@@ -24,6 +25,9 @@ struct Cli {
 enum Command {
     /// Create a new Secure Boot CA: PK, KEK and signing CA.
     InitCA(init_ca::Opts),
+
+    /// Bless a disk image by signing the boot loader and any UKI.
+    BlessImage(bless_image::Opts),
 
     /// Create a new key for signing UEFI binaries.
     ///
@@ -68,6 +72,7 @@ fn main() -> Result<()> {
 
     match cli.command {
         Command::InitCA(opts) => opts.run().context("Failed to initialize CA"),
+        Command::BlessImage(opts) => opts.run().context("Failed to bless image"),
         Command::CreateEnrollment(opts) => {
             opts.run().context("Failed to create enrollment package")
         }
