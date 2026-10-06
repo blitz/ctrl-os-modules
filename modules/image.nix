@@ -215,6 +215,11 @@ in
 
         image.repart = {
           name = "image";
+
+          # Including the version in the image name makes the image harder to find than necessary.
+          # But if you need to know the image name, you can try config.image.filePath.
+          version = null;
+
           split = true;
 
           # By default, the repart module used a fixed UUID as a seed for systemd-repart. This results in identical
