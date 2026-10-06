@@ -4,7 +4,7 @@ use std::{
     process::Command,
 };
 
-use anyhow::{ensure, Context, Result};
+use anyhow::{Context, Result, ensure};
 use clap::Args;
 use log::info;
 
