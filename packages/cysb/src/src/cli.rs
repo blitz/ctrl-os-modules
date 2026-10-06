@@ -1,4 +1,5 @@
 //! Implementations of the subcommands.
+pub mod bless_image;
 pub mod create_enrollment;
 pub mod create_signing_key;
 pub mod init_ca;
