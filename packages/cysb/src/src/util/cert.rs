@@ -162,6 +162,7 @@ fn read_file(path: &Path) -> Result<Vec<u8>> {
     fs::read(path).with_context(|| format!("Failed to read {}", path.display()))
 }
 
+#[allow(clippy::upper_case_acronyms)]
 enum Format {
     /// "Privacy Enhanced Mail"
     PEM,
