@@ -9,6 +9,8 @@ use cli::{
     sign_file, verify,
 };
 
+use crate::cli::bless_update;
+
 /// Manage the Secure Boot keys of Cyberus Linux.
 #[derive(Debug, Parser)]
 #[command(version, about)]
@@ -28,6 +30,9 @@ enum Command {
 
     /// Bless a disk image by signing the boot loader and any UKI.
     BlessImage(bless_image::Opts),
+
+    /// Bless an update bundle by signing the kernel it contains.
+    BlessUpdate(bless_update::Opts),
 
     /// Create a new key for signing UEFI binaries.
     ///
@@ -73,6 +78,7 @@ fn main() -> Result<()> {
     match cli.command {
         Command::InitCA(opts) => opts.run().context("Failed to initialize CA"),
         Command::BlessImage(opts) => opts.run().context("Failed to bless image"),
+        Command::BlessUpdate(opts) => opts.run().context("Failed to bless update bundle"),
         Command::CreateEnrollment(opts) => {
             opts.run().context("Failed to create enrollment package")
         }
