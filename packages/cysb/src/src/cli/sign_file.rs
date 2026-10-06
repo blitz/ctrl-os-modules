@@ -74,8 +74,8 @@ impl SignOpts {
             .arg("--private-key-source")
             .arg(&self.private_key_source)
             .arg("--output")
-            .arg(&output)
-            .arg(&input)
+            .arg(output)
+            .arg(input)
             .status()
             .with_context(|| format!("Failed to execute {}", self.systemd_sbsign_path.display()))?;
 
