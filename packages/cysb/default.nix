@@ -3,6 +3,9 @@
   openssl,
   pkg-config,
   rustPlatform,
+  makeWrapper,
+  efitools,
+  systemd,
 }:
 let
   cargoToml = lib.importTOML ./src/Cargo.toml;
@@ -15,8 +18,22 @@ rustPlatform.buildRustPackage {
 
   cargoLock.lockFile = ./src/Cargo.lock;
 
-  nativeBuildInputs = [ pkg-config ];
+  nativeBuildInputs = [
+    pkg-config
+    makeWrapper
+  ];
+
   buildInputs = [ openssl ];
+
+  postFixup = ''
+    wrapProgram $out/bin/cysb \
+      --set SYSTEMD_SBSIGN_PATH "${systemd}/lib/systemd/systemd-sbsign" \
+      --prefix PATH : ${
+        lib.makeBinPath [
+          efitools
+        ]
+      }
+  '';
 
   meta = {
     description = "Manage the Secure Boot keys of Cyberus Linux";
