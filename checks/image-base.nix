@@ -16,12 +16,22 @@
 let
   systemVersion = "1.0.0";
 
-  # Disable the VM boot shortcuts, because they interfere with booting the image.
-  testCompatibility = { lib, ... }: {
-    virtualisation.directBoot.enable = false;
-    virtualisation.mountHostNixStore = false;
-    virtualisation.useEFIBoot = true;
-    virtualisation.fileSystems = lib.mkForce { };
+
+  testCompatibility = { lib, pkgs, ... }: {
+    virtualisation = {
+      # Disable the VM boot shortcuts, because they interfere with booting the image.
+      directBoot.enable = false;
+      mountHostNixStore = false;
+      fileSystems = lib.mkForce { };
+
+      # Enable full UEFI and Secure Boot support.
+      useEFIBoot = true;
+      useSecureBoot = true;
+      tpm.enable = true;
+      efi.OVMF = pkgs.OVMFFull.fd;
+      efi.keepVariables = true;
+    };
+
   };
 in
 testers.nixosTest {
