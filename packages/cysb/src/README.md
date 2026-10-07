@@ -249,3 +249,7 @@ To double-check that a UEFI binary is signed by the signing CA, use `cysb verify
 $ cysb verify --signing-ca-certificate ca/public/signing-ca.crt signed.efi
 Verifying signed.efi: OK
 ```
+
+## Bless Disk Images and Update Bundles
+
+Similarly as signing individual files, we can bless whole disk images (`cysb bless-image`) and update bundles (`cysb bless-update`) by signing the UEFI binaries inside of them. These commands are self-explanatory once you signed a file with `cysb sign-file`.
